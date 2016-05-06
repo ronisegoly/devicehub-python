@@ -1,4 +1,6 @@
+#list of possible devcices
 ports = ['/dev/ttyACM0','/dev/ttyACM1','/dev/ttyUSB0','/dev/ttyUSB1','NULL']
+#same as on device hub names
 stored={'LampA':"",'LampB':""}
 def myip():
 
@@ -6,14 +8,6 @@ def myip():
 		return(commands.getoutput("/sbin/ifconfig").split("\n")[1].split()[1][5:])
 	except:
 		return "unkown"
-
-def email_alert(first, second, third):
-    report = {}
-    report["value1"] = first
-    report["value2"] = second
-    report["value3"] = third
-    requests.post("https://maker.ifttt.com/trigger/relay001/with/key/ctoyvcrdl2NWmXeLL87aT2", data=report)
-                  #https://maker.ifttt.com/trigger/relay001/with/key/ctoyvcrdl2NWmXeLL87aT2
 
 import time
 import pdb
@@ -28,7 +22,6 @@ import dh
 import commands
 
 # Create a new board, specifying serial port
-
 for p in ports:
         try:
                 print "trying port: "+p
@@ -48,10 +41,11 @@ for p in ports:
 pin1=board.get_pin('d:8:o')
 pin2=board.get_pin('d:9:o')
 pins={'LampA':pin1,'LampB':pin2}
-#loop just to make sure we have network
+#loop just to make sure we have network, as scipt is triggered from cron
 while True:
 	try:
- 	        rd= mymodule.r.hgetall('relay')
+ 	        print "am I connected?"
+ 	        #add code here
 		break
 # 	        if myip()=='unkown':
 #			print "still not connected"
@@ -64,14 +58,16 @@ while True:
 try:
 	for keys in stored:
     		print keys
+    		#read status from devicehub
 		if (dh.get_actuator_state (keys, dh.project,dh.uuid, dh.apikey)) == 1:
 			mydh='ON'
 		else:
 			mydh = 'OFF'
                 print "state from devicehub %s " % mydh
-
+		#stre locally
 		stored[keys]=mydh
 #		pdb.set_trace()
+		#send to Arduino and relay
 		if mydh=='ON':
                 	pins[keys].write(1)
                 else:
@@ -80,23 +76,23 @@ try:
 		time.sleep(2)
 
 	print stored
+	#loop forever
 	while True:
 	        logtime =str(datetime.now().strftime('%Y/%m/%d %H:%M:%S'))
 		
 		for keys in stored:
+			#read from devicehub
 			if (dh.get_actuator_state (keys, dh.project,dh.uuid, dh.apikey)) == 1:
                         	mydh='ON'
                 	else:
                         	mydh = 'OFF'
                 	data = mydh
+                	#do we have a change?
                 	if data != stored[keys]:
 				print ('%s Value changed on %s, updated to %s' %(keys,logtime,data))
 		                stored[keys]=data
                                 print stored
 				print "sending %s to Arduino %s" %(data,pins[keys])
-#				email_alert("Sending to Arduino", data, pins[keys])
-
-#				pdb.set_trace()
 				if data=='ON':
 					pins[keys].write(1)
 				else:
